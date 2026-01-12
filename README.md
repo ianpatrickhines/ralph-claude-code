@@ -1,12 +1,10 @@
 # Ralph for Claude Code
 
+> **Credit where due.** The Ralph pattern was created by [Geoffrey Huntley](https://ghuntley.com/ralph/). This quick-install implementation was built by [Ryan Carson](https://github.com/snarktank/ralph) for Amp CLI. This repo adapts it for Claude Code.
+
 An autonomous AI agent loop for [Claude Code](https://claude.ai/claude-code). Ralph executes iteratively through discrete iterations until all requirements in a Product Requirements Document are complete.
 
 Each iteration spawns a fresh Claude instance with clean context. Memory persists via git history, `progress.txt`, and `prd.json`.
-
-## Attribution
-
-This is a port of [snarktank/ralph](https://github.com/snarktank/ralph) (originally for Amp CLI) adapted for Claude Code. The core pattern and philosophy come from Geoffrey Huntley's Ralph pattern.
 
 ## Prerequisites
 
