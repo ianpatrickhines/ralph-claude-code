@@ -4,7 +4,7 @@
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/ralph-claude-code.git ~/ralph-claude-code
+git clone https://github.com/ianpatrickhines/ralph-claude-code.git ~/ralph-claude-code
 
 # Add to PATH
 echo 'export PATH="$PATH:$HOME/ralph-claude-code"' >> ~/.zshrc

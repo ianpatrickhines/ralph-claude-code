@@ -19,7 +19,7 @@ This is a port of [snarktank/ralph](https://github.com/snarktank/ralph) (origina
 ### Option 1: Clone and Add to PATH
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/ralph-claude-code.git ~/ralph-claude-code
+git clone https://github.com/ianpatrickhines/ralph-claude-code.git ~/ralph-claude-code
 echo 'export PATH="$PATH:$HOME/ralph-claude-code"' >> ~/.zshrc
 source ~/.zshrc
 ```
