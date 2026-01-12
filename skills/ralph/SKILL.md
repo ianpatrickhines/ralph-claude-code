@@ -1,35 +1,79 @@
 ---
 name: ralph
-description: "Convert PRDs to prd.json format for the Ralph autonomous agent system. Use when you have an existing PRD and need to convert it to Ralph's JSON format. Triggers on: convert this prd, turn this into ralph format, create prd.json from this, ralph json."
+description: Convert PRD to prd.json format for autonomous agent execution. Use /ralph after creating a PRD with /prd to prepare for autonomous implementation loop.
 ---
 
 # Ralph PRD Converter
 
-Converts existing PRDs to the prd.json format that Ralph uses for autonomous execution.
+Convert PRD markdown documents into `prd.json` format for the Ralph autonomous execution loop.
 
----
+## When to Use
 
-## The Job
+After running `/prd` to generate a PRD, or `/ultraplan` to create a SPEC.md, run `/ralph` to prepare for autonomous execution.
 
-Take a PRD (markdown file or text) and convert it to `prd.json` in your ralph directory.
+## Workflow
 
----
+### 1. Find Source Document
 
-## Output Format
+Check for source documents in order of preference:
+1. User-specified file
+2. Recent `tasks/*/prd-*.md` or `tasks/prd-*.md`
+3. `SPEC.md` in current directory (from Ultraplan)
+
+If multiple options, ask user which to convert.
+
+### 2. Determine Feature Name and Directory
+
+If source is in `tasks/{name}-{suffix}/`, use that directory.
+
+If creating new (from SPEC.md):
+- Extract feature name from content
+- Generate 5-character random suffix: `LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c 5`
+- Create directory: `tasks/{feature-name}-{suffix}/`
+
+### 3. Convert to prd.json
+
+**If source is PRD markdown** (from /prd):
+- Parse user stories directly
+- Validate story sizing
+
+**If source is SPEC.md** (from /ultraplan):
+- Extract requirements sections
+- Break into atomic user stories (each completable in one context)
+- Order by dependencies (DB → Backend → Frontend)
+- Use AskUserQuestion to validate story breakdown with user
+
+### 4. Validate Stories
+
+Before writing, verify:
+- Each story is atomic (2-3 sentence description max)
+- Dependencies ordered correctly
+- All criteria are verifiable (not vague)
+- Every story has "Typecheck passes" criterion
+- UI stories have "Verify in browser" criterion
+
+**Story Too Large?** Signs:
+- More than 4-5 acceptance criteria
+- Touches more than 3 files
+- Description requires multiple paragraphs
+- Contains "and" connecting separate features
+
+Break down large stories and re-validate.
+
+### 5. Generate JSON
 
 ```json
 {
-  "project": "[Project Name]",
-  "branchName": "ralph/[feature-name-kebab-case]",
-  "description": "[Feature description from PRD title/intro]",
+  "project": "ProjectName",
+  "branchName": "ralph/feature-name",
+  "description": "One-line feature description",
   "userStories": [
     {
       "id": "US-001",
-      "title": "[Story title]",
-      "description": "As a [user], I want [feature] so that [benefit]",
+      "title": "Short title",
+      "description": "As a [user], I want [goal] so that [benefit].",
       "acceptanceCriteria": [
-        "Criterion 1",
-        "Criterion 2",
+        "Specific criterion 1",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -40,218 +84,71 @@ Take a PRD (markdown file or text) and convert it to `prd.json` in your ralph di
 }
 ```
 
----
+### 6. Initialize Progress
 
-## Story Size: The Number One Rule
-
-**Each story must be completable in ONE Ralph iteration (one context window).**
-
-Ralph spawns a fresh Amp instance per iteration with no memory of previous work. If a story is too big, the LLM runs out of context before finishing and produces broken code.
-
-### Right-sized stories:
-- Add a database column and migration
-- Add a UI component to an existing page
-- Update a server action with new logic
-- Add a filter dropdown to a list
-
-### Too big (split these):
-- "Build the entire dashboard" - Split into: schema, queries, UI components, filters
-- "Add authentication" - Split into: schema, middleware, login UI, session handling
-- "Refactor the API" - Split into one story per endpoint or pattern
-
-**Rule of thumb:** If you cannot describe the change in 2-3 sentences, it is too big.
-
----
-
-## Story Ordering: Dependencies First
-
-Stories execute in priority order. Earlier stories must not depend on later ones.
-
-**Correct order:**
-1. Schema/database changes (migrations)
-2. Server actions / backend logic
-3. UI components that use the backend
-4. Dashboard/summary views that aggregate data
-
-**Wrong order:**
-1. UI component (depends on schema that does not exist yet)
-2. Schema change
-
----
-
-## Acceptance Criteria: Must Be Verifiable
-
-Each criterion must be something Ralph can CHECK, not something vague.
-
-### Good criteria (verifiable):
-- "Add `status` column to tasks table with default 'pending'"
-- "Filter dropdown has options: All, Active, Completed"
-- "Clicking delete shows confirmation dialog"
-- "Typecheck passes"
-- "Tests pass"
-
-### Bad criteria (vague):
-- "Works correctly"
-- "User can do X easily"
-- "Good UX"
-- "Handles edge cases"
-
-### Always include as final criterion:
+Create `tasks/{feature}-{suffix}/progress.txt`:
 ```
-"Typecheck passes"
+# Ralph Progress Log - {feature-name}
+Started: [date]
+---
 ```
 
-For stories with testable logic, also include:
+### 7. Offer Execution Choice
+
+After conversion is complete, use AskUserQuestion to ask:
+
+**Question:** "PRD converted with {N} user stories. How would you like to proceed?"
+
+**Options:**
+1. **"Watch it work"** (Recommended) - Run in a separate terminal so you can watch the agent in real-time
+2. **"Run in background"** - Claude runs `ralph.sh` in background, monitors progress, reports when complete
+3. **"I'll handle it"** - Just give me the command
+
+**If user chooses "Watch it work":**
+Tell user to open a new terminal and run:
+```bash
+ralph.sh {feature-name}
 ```
-"Tests pass"
+Explain: "You'll see each iteration's full output - file reads, code changes, test runs, commits. Can't interact mid-story, but full visibility."
+
+**If user chooses "Run in background":**
+1. Use Bash tool with `run_in_background: true` to execute:
+   ```bash
+   ralph.sh {feature-name} 2>&1
+   ```
+2. Tell user: "Ralph is running in the background. I'll monitor progress and let you know when it completes or needs attention."
+3. Periodically check the background task output
+4. Report completion or any issues that need user intervention
+
+**If user chooses "I'll handle it":**
+Provide the command:
 ```
-
-### For stories that change UI, also include:
-```
-"Verify in browser using dev-browser skill"
-```
-
-Frontend stories are NOT complete until visually verified. Ralph will use the dev-browser skill to navigate to the page, interact with the UI, and confirm changes work.
-
----
-
-## Conversion Rules
-
-1. **Each user story becomes one JSON entry**
-2. **IDs**: Sequential (US-001, US-002, etc.)
-3. **Priority**: Based on dependency order, then document order
-4. **All stories**: `passes: false` and empty `notes`
-5. **branchName**: Derive from feature name, kebab-case, prefixed with `ralph/`
-6. **Always add**: "Typecheck passes" to every story's acceptance criteria
-
----
-
-## Splitting Large PRDs
-
-If a PRD has big features, split them:
-
-**Original:**
-> "Add user notification system"
-
-**Split into:**
-1. US-001: Add notifications table to database
-2. US-002: Create notification service for sending notifications
-3. US-003: Add notification bell icon to header
-4. US-004: Create notification dropdown panel
-5. US-005: Add mark-as-read functionality
-6. US-006: Add notification preferences page
-
-Each is one focused change that can be completed and verified independently.
-
----
-
-## Example
-
-**Input PRD:**
-```markdown
-# Task Status Feature
-
-Add ability to mark tasks with different statuses.
-
-## Requirements
-- Toggle between pending/in-progress/done on task list
-- Filter list by status
-- Show status badge on each task
-- Persist status in database
+ralph.sh {feature-name}
 ```
 
-**Output prd.json:**
-```json
-{
-  "project": "TaskApp",
-  "branchName": "ralph/task-status",
-  "description": "Task Status Feature - Track task progress with status indicators",
-  "userStories": [
-    {
-      "id": "US-001",
-      "title": "Add status field to tasks table",
-      "description": "As a developer, I need to store task status in the database.",
-      "acceptanceCriteria": [
-        "Add status column: 'pending' | 'in_progress' | 'done' (default 'pending')",
-        "Generate and run migration successfully",
-        "Typecheck passes"
-      ],
-      "priority": 1,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-002",
-      "title": "Display status badge on task cards",
-      "description": "As a user, I want to see task status at a glance.",
-      "acceptanceCriteria": [
-        "Each task card shows colored status badge",
-        "Badge colors: gray=pending, blue=in_progress, green=done",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 2,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-003",
-      "title": "Add status toggle to task list rows",
-      "description": "As a user, I want to change task status directly from the list.",
-      "acceptanceCriteria": [
-        "Each row has status dropdown or toggle",
-        "Changing status saves immediately",
-        "UI updates without page refresh",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 3,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-004",
-      "title": "Filter tasks by status",
-      "description": "As a user, I want to filter the list to see only certain statuses.",
-      "acceptanceCriteria": [
-        "Filter dropdown: All | Pending | In Progress | Done",
-        "Filter persists in URL params",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 4,
-      "passes": false,
-      "notes": ""
-    }
-  ]
-}
+## Multiple Features
+
+Each feature gets its own subdirectory with unique suffix:
+```
+tasks/
+├── auth-system-x7k2m/
+│   ├── prd.json
+│   └── progress.txt
+├── auth-system-p3n9q/    # Second run of same feature
+│   ├── prd.json
+│   └── progress.txt
+└── billing-a2b4c/
+    ├── prd.json
+    └── progress.txt
 ```
 
----
+Run specific feature: `ralph.sh auth-system` (matches first found)
+Run exact directory: `ralph.sh auth-system-x7k2m`
 
-## Archiving Previous Runs
+## Reference
 
-**Before writing a new prd.json, check if there is an existing one from a different feature:**
+See [references/iteration-workflow.md](references/iteration-workflow.md) for what happens during each Ralph iteration.
 
-1. Read the current `prd.json` if it exists
-2. Check if `branchName` differs from the new feature's branch name
-3. If different AND `progress.txt` has content beyond the header:
-   - Create archive folder: `archive/YYYY-MM-DD-feature-name/`
-   - Copy current `prd.json` and `progress.txt` to archive
-   - Reset `progress.txt` with fresh header
+## History
 
-**The ralph.sh script handles this automatically** when you run it, but if you are manually updating prd.json between runs, archive first.
-
----
-
-## Checklist Before Saving
-
-Before writing prd.json, verify:
-
-- [ ] **Previous run archived** (if prd.json exists with different branchName, archive it first)
-- [ ] Each story is completable in one iteration (small enough)
-- [ ] Stories are ordered by dependency (schema to backend to UI)
-- [ ] Every story has "Typecheck passes" as criterion
-- [ ] UI stories have "Verify in browser using dev-browser skill" as criterion
-- [ ] Acceptance criteria are verifiable (not vague)
-- [ ] No story depends on a later story
+Created 2025-01-12 to support Ralph autonomous agent loop. Uses random suffix for unique feature directories.
